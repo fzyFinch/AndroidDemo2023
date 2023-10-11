@@ -1,4 +1,4 @@
-package com.example.demo2023
+package com.fzy.signin
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -11,13 +11,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.alibaba.android.arouter.facade.annotation.Route
-import com.fzy.common.theme.Demo2023Theme
 import com.fzy.common.ARouterPath
+import com.fzy.signin.ui.theme.Demo2023Theme
 
-@Route(path = ARouterPath.MainActivity)
-class MainActivity : ComponentActivity() {
+@Route(path = ARouterPath.test1)
+class EmptyActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-
         super.onCreate(savedInstanceState)
         setContent {
             Demo2023Theme {

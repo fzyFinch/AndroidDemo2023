@@ -1,4 +1,4 @@
-package com.example.demo2023.ui.theme
+package com.fzy.signin.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

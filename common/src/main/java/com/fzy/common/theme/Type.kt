@@ -1,4 +1,4 @@
-package com.example.demo2023.ui.theme
+package com.fzy.common.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

@@ -1,0 +1,124 @@
+apply plugin: 'org.jetbrains.kotlin.android'
+apply plugin: 'kotlin-kapt'
+
+boolean isApp = isModuleAsApp(project)
+if (isApp) {
+  apply plugin: 'com.android.application'
+} else {
+  apply plugin: 'com.android.library'
+}
+apply from:"../config_dependecy_hilt_aroute.gradle"
+
+android {
+  compileSdk rootProject.ext.android.compileSdkVersion
+  defaultConfig {
+    if (isApp) {
+      applicationId "com.lollitech.betterus"
+    }
+    minSdk rootProject.ext.android.minSdkVersion
+    targetSdk rootProject.ext.android.targetSdkVersion
+    versionCode rootProject.ext.android.versionCode
+    versionName rootProject.ext.android.versionName
+
+    javaCompileOptions {
+      annotationProcessorOptions {
+        arguments += [AROUTER_MODULE_NAME: project.getName()]
+        arguments += [
+                "room.schemaLocation":"$projectDir/schemas".toString(),
+                "room.incremental":"true",
+                "room.expandProjection":"true"]
+      }
+    }
+  }
+
+  sourceSets {
+    main {
+      if (isApp && project.name != "app") {
+        java.srcDirs = ['src/main/java', 'moduleSrc/main/java']
+        res.srcDirs = ['src/main/res', 'moduleSrc/main/res']
+        manifest.srcFile 'moduleSrc/main/AndroidManifest.xml'
+      } else {
+        java.srcDirs = ['src/main/java']
+        res.srcDirs = ['src/main/res']
+        manifest.srcFile 'src/main/AndroidManifest.xml'
+      }
+    }
+  }
+
+  if (isApp) {
+    flavorDimensions "default"
+    signingConfigs {
+      // com.bm
+      V1TO2 {
+        storeFile file("${rootProject.rootDir.parentFile}/v1tov2")
+        storePassword '123456'
+        keyAlias 'v1tov2'
+        keyPassword '123456'
+
+        v1SigningEnabled true
+        v2SigningEnabled true
+      }
+    }
+
+    productFlavors.all {
+      flavor ->
+        //测试发现 buildTypes.all()晚于productFlavors.all()，
+        //建议setManifestPlaceholders(Map)换成addManifestPlaceholders(Map)
+        //这样才不会影响其他地方的属性定义
+        flavor.addManifestPlaceholders([channel: name])
+        flavor.setSigningConfig(signingConfigs.V1TO2)
+        flavor.applicationId = rootProject.ext.android.applicationId
+    }
+
+    lintOptions {
+      checkReleaseBuilds false
+      // Or, if you prefer, you can continue to check for errors in release builds,
+      // but continue the build even when errors are found:
+      abortOnError false
+    }
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+      shrinkResources false
+      zipAlignEnabled true
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro', "${rootDir}/custom-proguard-rules.pro"
+      addManifestPlaceholders([sensors: false])
+    }
+
+    debug {
+      minifyEnabled false
+      shrinkResources false
+      zipAlignEnabled false
+      // 指定 debug 使用release的签名
+      signingConfig release.signingConfig
+      addManifestPlaceholders([sensors: false])
+    }
+
+    easyinstall {
+      initWith release
+      zipAlignEnabled true
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro', "${rootDir}/custom-proguard-rules.pro"
+
+      matchingFallbacks = ['release']
+    }
+
+  }
+
+  buildFeatures {
+    viewBinding true
+  }
+
+}
+
+dependencies {
+//  testImplementation libs.test.junit
+//  androidTestImplementation libs.test.ext.junit
+//  androidTestImplementation libs.test.espresso
+//
+//  implementation libs.bundles.ui
+//  implementation libs.bundles.base
+//  implementation libs.bundles.coroutines
+//  implementation(libs.lollypopCommon)
+}

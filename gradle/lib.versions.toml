@@ -1,0 +1,14 @@
+[versions]
+#版本
+arouterVersion = '1.5.2'
+
+[libraries]
+#依赖
+arouter-api = { group = "com.alibaba", name = "arouter-api", version.ref = "arouterVersion" }
+arouter-compiler = { group = "com.alibaba", name = "arouter-compiler", version.ref = "arouterVersion" }
+base-fragment = { module = "androidx.fragment:fragment-ktx", version = "1.5.2" }
+
+[bundles]
+#组合
+
+[plugins]

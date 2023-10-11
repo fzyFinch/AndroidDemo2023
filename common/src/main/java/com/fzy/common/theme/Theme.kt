@@ -1,4 +1,4 @@
-package com.example.demo2023.ui.theme
+package com.fzy.common.theme
 
 import android.app.Activity
 import android.os.Build

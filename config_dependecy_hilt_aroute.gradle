@@ -1,0 +1,27 @@
+/**
+ * 本配置文件用来配置Hilt和ARouter，模块如果需要增加配置，应用本配置
+ */
+//apply plugin: 'dagger.hilt.android.plugin'
+apply plugin: 'kotlin-kapt'
+boolean isApp = isModuleAsApp(project)
+if (isApp) {
+    apply plugin: 'com.android.application'
+} else {
+    apply plugin: 'com.android.library'
+}
+
+kapt {
+    arguments {
+        arg("AROUTER_MODULE_NAME", project.getName())
+    }
+}
+
+dependencies {
+    //hilt
+//    implementation libs.bundles.hilt
+//    kapt libs.bundles.hiltCompiler
+    //aRouter
+    implementation libs.arouter.api
+    kapt libs.arouter.compiler
+//    annotationProcessor libs.arouter.compiler
+}

@@ -1,0 +1,281 @@
+/********************** gradle 操作公共函数 ******************/
+ext {
+    // 是否作为单独的模块运行
+    isModuleAsApp = this.&isModuleAsApp
+    // 获取Gradle配置
+    getMyGradleProperties = this.&getMyGradleProperties
+    // 获取Config配置
+    getMyConfigProperties = this.&getMyConfigProperties
+    // 运行环境
+    getRunEnvironment = this.&getRunEnvironment
+    // 是否写入BuildConfig.java文件中
+    isWriteToBuildConfig = this.&isWriteToBuildConfig
+    // 获取Java数据类型
+    getJavaDataType = this.&getJavaDataType
+    // 获取常量名称
+    getConstantName = this.&getConstantName
+    // 获取常量值
+    getConstantValue = this.&getConstantValue
+    // 是否作为单独的模块运行
+    isAppModule = this.&isAppModule
+    // 是否Jenkins打包方式
+    isJenkinsBuild = this.&isJenkinsBuild
+    // 是否是内存检测包
+    isMemoryCheck = this.&isMemoryCheck
+}
+
+def isModuleAsApp(Project target) {
+    if (target.name == "app") {
+        return true
+    }
+    def pro = getMyGradleProperties(false)
+    def realKeyName = target.name + "_IS_APP_MODULE"
+    boolean result = Boolean.toString(true).equalsIgnoreCase(pro.get(realKeyName))
+    return result
+}
+
+/**
+ * 获取App运行环境
+ * @return version、beta、release等
+ */
+def getRunEnvironment(Properties gradleProp) {
+    def environment = getPropertyByKey(gradleProp, 'ENVIRONMENT')
+    log('getRunEnvironment', 'App运行环境是：' + environment)
+    return environment
+}
+
+/**
+ * 获取Gradle Properties配置
+ */
+def getMyGradleProperties(boolean isPrint = false) {
+    Properties gradleProp = getMyProperties('gradle.properties')
+    String flag = 'gradle配置'
+
+    if (isUseLocalPropertyFirst()) {
+        /**
+         * 撮合配置，即：使用 local.properties 替代 gradle.properties 存在的配置项
+         * 优先规则：local.properties > gradle.properties
+         **/
+        flag = '(gradle + local, 配置)'
+        Properties localProp = getMyProperties('local.properties')
+
+        for (String key in localProp.keySet()) {
+            log('getMyGradleProperties', ('local.properties替换gradle.properties配置，key：' + key
+                    + '，原值:' + gradleProp.get(key) + ', 新值:' + localProp.get(key)))
+            gradleProp.put(key, localProp.get(key))
+        }
+    }
+
+    if (isPrint) {
+        printAllProperties(flag, gradleProp)
+    }
+
+    return gradleProp
+}
+
+/**
+ * 是否可以连接 FastMock
+ * @return true：是
+ */
+def isAppModule(Properties gradleProp) {
+    String isAppModuleValue = getPropertyByKey(gradleProp, 'IS_APP_MODULE')
+    boolean isAppModule = Boolean.toString(true).equalsIgnoreCase(isAppModuleValue)
+    log('isAppModule', ('是否作为单独的模块运行：' + isAppModule))
+    return isAppModule
+}
+
+/**
+ * 是否Jenkins打包方式
+ * @return true：是
+ */
+def isJenkinsBuild() {
+    boolean isJenkinsBuild = project.hasProperty('IS_JENKINS') ? Boolean.parseBoolean(IS_JENKINS) : false
+    log('isJenkinsBuild', ('是否Jenkins构建：' + isJenkinsBuild))
+    return isJenkinsBuild
+}
+
+/**
+ * 是否是内存检测包
+ * @return true：是
+ */
+def isMemoryCheck() {
+    boolean isMemoryCheck = project.hasProperty('IS_MEMORY_CHECK') ? Boolean.parseBoolean(IS_MEMORY_CHECK) : false
+    log('isMemoryCheck', ('是否是内存检测包：' + isMemoryCheck))
+    return isMemoryCheck
+}
+
+
+/**
+ * 是否写入BuildConfig.java文件中
+ * @param props 配置
+ * @param key 关键字, 值如：BUILD_CONFIG_TEST_STRING_HOST_APP2=http://172.31.0.55:2015/
+ * @param currentRunEnv 当前App构建环境
+ * @return true:写入。
+ */
+def isWriteToBuildConfig(Properties props, String key, String currentRunEnv) {
+    String buildConfigPrefix = 'BUILD_CONFIG'
+
+    if (key.startsWith(buildConfigPrefix)) {
+        String[] keyArray = key.split("_")
+        String configRunEnv = keyArray[2]
+        log('isWriteToBuildConfig', 'configRunEnv:' + configRunEnv + ', currentRunEnv:' + currentRunEnv)
+
+        if (key.indexOf(buildConfigPrefix + '_' + currentRunEnv) >= 0) {// 构建环境完全匹配
+            log('isWriteToBuildConfig', '当前环境匹配, key:' + key)
+            return true
+        } else if (configRunEnv.indexOf('DEFAULT') >= 0) {// 默认值
+            String envPrefix = 'BUILD_CONFIG_' + currentRunEnv
+            String envConfigKey = envPrefix + key.substring('BUILD_CONFIG_DEFAULT'.length())
+            log('isWriteToBuildConfig', 'DEFAULT参数, oriKey:' + key + ', ePrefix:' + envPrefix + ', eCfgKey:' + envConfigKey + ', isWrite:' + (!props.containsKey(envConfigKey)))
+            return !props.containsKey(envConfigKey)
+        } else {// 其它环境
+            // log('isWriteToBuildConfig', '被过滤的key:' + key)
+        }
+    }
+
+    return false
+}
+
+/**
+ * 获取Java数据类型
+ * @param configKeyArray 配置key 字符串数组
+ * @return 如:String, int, double等
+ */
+def getJavaDataType(String[] configKeyArray) {
+    String dataType = configKeyArray[3]
+    return (dataType.indexOf('STRING') >= 0) ? 'String' : dataType.toLowerCase()
+}
+
+/**
+ * 获取常量名称(写入BuildConfig.java)
+ */
+def getConstantName(String[] configKeyArray) {
+    StringBuilder constNameSb = new StringBuilder('')
+    for (int i = 4; i < configKeyArray.length; i++) {
+        String splitFlag = (i > 4) ? '_' : ''
+        constNameSb.append(splitFlag + configKeyArray[i])
+    }
+
+    return constNameSb.toString()
+}
+
+/**
+ * 获取常量值(写入BuildConfig.java)
+ */
+def getConstantValue(String key, String[] keyArray, Properties props) {
+    if (keyArray[3].indexOf('STRING') >= 0) {
+        return ('"' + props.get(key) + '"')
+    } else if (keyArray[3].indexOf('CHAR') >= 0) {
+        return ('\'' + props.get(key) + '\'')
+    } else {
+        return props.get(key)
+    }
+}
+
+/**
+ * 获取属性文件
+ * @param propertyFilePath 配置文件路径
+ */
+def getMyProperties(String propertyFilePath) {
+//    log('getMyProperties', ('properties文件路径:' + propertyFilePath))
+    def propFile = project.file(propertyFilePath)
+
+    if (propFile.canRead()) {
+        Properties props = new Properties()
+        props.load(new FileInputStream(propFile))
+        return props
+    } else {
+        return new Properties()
+    }
+}
+
+/**
+ * 打印日志到控制台
+ */
+def log(String flag, String logMsg) {
+    println('=====flag->' + flag + ', ' + logMsg)
+}
+
+/**
+ * 打印所有属性
+ */
+def printAllProperties(String flag, Properties prop) {
+    log('printAllProperties', '================ 打印 begin ================')
+    for (String key in prop.keySet()) {
+        log(flag, key + '=' + prop.get(key))
+    }
+    log('printAllProperties', '================ 打印 end ================')
+}
+
+/**
+ * 是否优先使用本地自定义配置。(该函数在上面有调用，不要删除)
+ *  return true:  优先使用 local.properties 配置，其次才是 gradle.properties 配置。<br/>
+ *  return false: 使用 gradle.properties配置。<br/>
+ */
+static def isUseLocalPropertyFirst() {
+    return true
+}
+
+
+/**
+ * 获取解析default-config.properties, flavor-config.properties属性文件
+ **/
+def getMyConfigProperties(Properties gradleProp, boolean isPrint = true) {
+    log('getMyConfigProperties', '0000000')
+    /* 默认配置 */
+    def defaultPropFilePath = 'default-config.properties'
+    log('getMyConfigProperties', '111111')
+    Properties defaultProp = getMyProperties(defaultPropFilePath)
+    log('getMyConfigProperties', '2222222')
+
+    /* 撮合 SERVER_URL 地址 (在非beta、release环境下, APP_SERVER_URL若配置合法地址，优先使用)*/
+    String envName = getRunEnvironment(gradleProp).toUpperCase()
+    log('getMyConfigProperties', envName)
+    if ('RELEASE' != envName) {
+        String customServerUrl = getAppServerUrl(gradleProp)
+        log('getMyConfigProperties', customServerUrl)
+        if (customServerUrl != "None") {
+            String key = 'BUILD_CONFIG_' + envName + '_STRING_SERVER_URL'
+            log('getMyConfigProperties', '替换SERVER_URL, key:' + key + ', oldUrl:' + defaultProp.get(key) + ', newUrl:' + customServerUrl)
+            defaultProp.put(key, customServerUrl)
+        }
+    }
+
+    if (isPrint) {
+        printAllProperties('xxx-config配置', defaultProp)
+    }
+    return defaultProp
+}
+
+/**
+ * 获取App后端服务器地址
+ */
+def getAppServerUrl(Properties gradleProp) {
+    String appServerUrl = getPropertyByKey(gradleProp, 'APP_SERVER_URL')
+    log('getAppServerUrl', 'App服务器地址：' + appServerUrl)
+    return appServerUrl
+}
+
+/**
+ * 根据Key查询properties内容
+ * @param propParser 属性配置解析器
+ * @param key 查询的key
+ * @return value
+ */
+def getPropertyByKey(Properties propParser, String key) {
+    // check
+    if (propParser == null || key == null) {
+        throw new Exception('重要值为null！propParser：' + propParser + ', key:' + key)
+    }
+
+    if (propParser.containsKey(key)) {
+        String value = propParser[key]
+        if (value == null || value.trim().length() == 0) {
+            throw new Exception('Properties配置文件' + key + '配置项值为空！')
+        }
+
+        return value.trim()
+    } else {
+        throw new Exception('Properties配置文件中未找到' + key + '配置项！')
+    }
+}
